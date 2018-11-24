@@ -1,12 +1,186 @@
-import React from 'react';
-import ReactDOM from 'react-dom';
-import './index.css';
-import App from './App';
-import * as serviceWorker from './serviceWorker';
+import React from 'react'
+import ReactDOM from 'react-dom'
+import './index.css'
 
-ReactDOM.render(<App />, document.getElementById('root'));
+function Square(props) {
+  if (props.highlight) {
+    return (
+      <button className="square" onClick={() => props.onClick()} style={{color: 'red'}}>
+        {props.value}
+      </button>
+    )
+  } else {
+    return (
+      <button className="square" onClick={() => props.onClick()}>
+        {props.value}
+      </button>
+    )
+  }
+}
 
-// If you want your app to work offline and load faster, you can change
-// unregister() to register() below. Note this comes with some pitfalls.
-// Learn more about service workers: http://bit.ly/CRA-PWA
-serviceWorker.unregister();
+class Board extends React.Component {
+  renderSquare(i) {
+    return (
+      <Square 
+        key={i}
+        value={this.props.squares[i]} 
+        onClick={() => this.props.onClick(i)}
+        highlight={this.props.winnerLine.includes(i)}
+      />
+    )
+  }
+
+  render() {
+    let rows = []
+    for (let i = 0; i < 3; i++) {
+      let row = []
+      for (let j = 3 * i; j < 3 * (i + 1); j++) {
+        row.push(this.renderSquare(j))
+      }
+      rows.push(<div className='board-row' key={i}>{row}</div>)
+    }
+    return (
+      <div>
+        {rows}
+      </div>
+    )
+  }
+}
+
+class Game extends React.Component {
+  constructor() {
+    super()
+    this.state = {
+      history: [{
+        squares: Array(9).fill(null),
+        lastStep: 'Game Start'
+      }],
+      xIsNext: true,
+      stepNumber: 0,
+      sort: false
+    }
+  }
+
+  handleClick(i) {
+    const history = this.state.history
+    const current = history[this.state.stepNumber]
+    const squares = current.squares.slice()
+
+    // 一方获胜/一方已经落子，无法继续落子
+    if (calculateWinner(squares).winner || squares[i]) return
+
+    squares[i] = this.state.xIsNext ? 'X' : 'O'
+
+    const location = `(${Math.floor(i / 3) + 1}, ${i % 3 + 1})`
+    const desc = squares[i] + ' move to ' + location
+
+    this.setState({
+      history: history.concat([{
+        squares,
+        lastStep: desc
+      }]),
+      xIsNext: !this.state.xIsNext,
+      stepNumber: history.length
+    })
+  }
+
+  jumpTo(step) {
+    this.setState({
+      stepNumber: step,
+      xIsNext: step % 2 ? false : true
+    })
+  }
+
+  toggleSort() {
+    this.setState({
+      sort: !this.state.sort,
+      history: this.state.history.reverse()
+    })
+  }
+
+  render() {
+    // let history = this.state.history
+    const current = this.state.history[this.state.stepNumber]
+    const winner = calculateWinner(current.squares).winner
+    const winnerLine = calculateWinner(current.squares).line
+
+    let status
+    if (winner) {
+      status = 'Winner: ' + winner
+    } else {
+      status = 'Next player: ' + this.state.xIsNext ? 'X' : 'O'
+    }
+
+    // if (this.state.sort) {
+    //   history = this.state.history.slice()
+    //   history.reverse()
+    // }
+
+    const moves = this.state.history.map((step, move) => {
+      const desc = step.lastStep
+
+      if (move === this.state.stepNumber) {
+        return (
+          <li key={move}>
+            <button onClick={() => this.jumpTo(move)}>
+              <strong>{desc}</strong>
+            </button>
+          </li>
+        )
+      }
+
+      return (
+        <li key={move}>
+          <button onClick={() => this.jumpTo(move)}>{desc}</button>
+        </li>
+      )
+    })
+
+    return (
+      <div className="game">
+        <div className="game-board">
+          <Board 
+            squares={current.squares}
+            onClick={i => this.handleClick(i)}
+            winnerLine={winnerLine}
+          />
+        </div>
+        <div className="game-info">
+          <div>{status}</div>
+          <button onClick={() => this.toggleSort()}>SORT</button>
+          <ol>{moves}</ol>
+        </div>
+      </div>
+    )
+  }
+}
+
+// 判断赢家
+function calculateWinner(squares) {
+  const lines = [
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [0, 3, 6],
+    [1, 4, 7],
+    [2, 5, 8],
+    [0, 4, 8],
+    [2, 4, 6]
+  ]
+
+  for (let i = 0; i < lines.length; i++) {
+    const [a, b, c] = lines[i]
+    if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) {
+      return {winner: squares[a], line: [a, b, c]}
+    }
+  }
+
+  return {winner: null, line: []}
+}
+
+// ========================================
+
+ReactDOM.render(
+  <Game />,
+  document.getElementById('root')
+)
